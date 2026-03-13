@@ -61,8 +61,8 @@ export default async function WaterReportPage({ params }: PageProps) {
             </h1>
             {primary && (
               <p className="text-gray-400 mt-2">
-                {primary.name} &middot; {primary.state}
-                {primary.populationServed > 0 && ` &middot; ${primary.populationServed.toLocaleString()} people served`}
+                {primary.name} · {primary.state}
+                {primary.populationServed > 0 && ` · ${primary.populationServed.toLocaleString()} people served`}
               </p>
             )}
           </div>
@@ -137,7 +137,7 @@ export default async function WaterReportPage({ params }: PageProps) {
         {/* Lead and Copper */}
         {report.leadCopper && (report.leadCopper.lead90th != null || report.leadCopper.copper90th != null) && (
           <section>
-            <h2 className="text-xl font-bold text-gray-900 mb-4">Lead &amp; Copper Testing</h2>
+            <h2 className="text-xl font-bold text-gray-900 mb-4">Lead & Copper Testing</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {report.leadCopper.lead90th != null && (
                 <div className={`rounded-xl border p-5 ${
