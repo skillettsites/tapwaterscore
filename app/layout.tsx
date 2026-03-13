@@ -76,8 +76,15 @@ export default function RootLayout({
         />
         <header className="bg-white border-b border-gray-200">
           <div className="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between">
-            <a href="/" className="text-lg font-bold bg-gradient-to-r from-teal-600 to-cyan-500 bg-clip-text text-transparent">
-              TapWaterScore
+            <a href="/" className="flex items-center gap-2 group">
+              <svg width="28" height="28" viewBox="0 0 28 28" fill="none" className="shrink-0">
+                <circle cx="14" cy="14" r="13" className="fill-teal-50 stroke-teal-500" strokeWidth="1.5" />
+                <path d="M14 6c0 0-5.5 6.5-5.5 10.5a5.5 5.5 0 0 0 11 0C19.5 12.5 14 6 14 6z" className="fill-teal-500" />
+                <path d="M14 6c0 0-5.5 6.5-5.5 10.5a5.5 5.5 0 0 0 11 0C19.5 12.5 14 6 14 6z" className="fill-cyan-400" opacity="0.4" />
+              </svg>
+              <span className="text-lg font-extrabold bg-gradient-to-r from-teal-600 to-cyan-500 bg-clip-text text-transparent group-hover:from-teal-700 group-hover:to-cyan-600 transition-all">
+                TapWaterScore
+              </span>
             </a>
             <nav className="flex items-center gap-6 text-sm text-gray-600">
               <a href="/states" className="hover:text-gray-900 transition-colors">States</a>
@@ -93,8 +100,15 @@ export default function RootLayout({
           <div className="max-w-6xl mx-auto px-4 py-10">
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-8 text-sm">
               <div>
-                <a href="/" className="text-lg font-bold bg-gradient-to-r from-teal-400 to-cyan-300 bg-clip-text text-transparent">
-                  TapWaterScore
+                <a href="/" className="flex items-center gap-2">
+                  <svg width="24" height="24" viewBox="0 0 28 28" fill="none" className="shrink-0">
+                    <circle cx="14" cy="14" r="13" className="fill-teal-900 stroke-teal-500" strokeWidth="1.5" />
+                    <path d="M14 6c0 0-5.5 6.5-5.5 10.5a5.5 5.5 0 0 0 11 0C19.5 12.5 14 6 14 6z" className="fill-teal-400" />
+                    <path d="M14 6c0 0-5.5 6.5-5.5 10.5a5.5 5.5 0 0 0 11 0C19.5 12.5 14 6 14 6z" className="fill-cyan-300" opacity="0.4" />
+                  </svg>
+                  <span className="text-lg font-bold bg-gradient-to-r from-teal-400 to-cyan-300 bg-clip-text text-transparent">
+                    TapWaterScore
+                  </span>
                 </a>
                 <p className="mt-2">
                   Free tap water quality reports powered by EPA data.
