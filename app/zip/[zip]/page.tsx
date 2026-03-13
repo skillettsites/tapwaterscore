@@ -317,13 +317,21 @@ export default async function WaterReportPage({ params }: PageProps) {
 
         {/* Filter recommendations */}
         <section>
-          <h2 className="text-xl font-bold text-gray-900 mb-4">Recommended Filters</h2>
+          <h2 className="text-xl font-bold text-gray-900 mb-4">Recommended Filters for Your Water</h2>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="bg-white rounded-xl border border-gray-200 p-5">
               <span className="text-2xl block mb-2">🚰</span>
               <h3 className="font-bold text-sm text-gray-900 mb-1">Pitcher Filter</h3>
               <p className="text-xs text-gray-500 mb-2">Good for: chlorine, taste, some lead</p>
-              <p className="text-xs text-gray-400">$20-$40. Replace every 2-3 months.</p>
+              <p className="text-xs text-gray-400 mb-3">$30-$90. Replace every 2-3 months.</p>
+              <a
+                href="https://www.clearlyfiltered.com/products/clearly-filtered-water-pitcher" /* AFFILIATE: swap URL when approved */
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-block text-xs font-semibold text-teal-700 bg-teal-50 border border-teal-200 rounded-lg px-3 py-1.5 hover:bg-teal-100 transition-colors"
+              >
+                Clearly Filtered Pitcher →
+              </a>
             </div>
             <div className={`rounded-xl border p-5 ${
               report.hasPfas || report.hasLead
@@ -340,18 +348,62 @@ export default async function WaterReportPage({ params }: PageProps) {
                 )}
               </h3>
               <p className="text-xs text-gray-500 mb-2">Best for: PFAS, lead, arsenic, nitrates</p>
-              <p className="text-xs text-gray-400">$150-$500. Removes 95%+ of contaminants.</p>
+              <p className="text-xs text-gray-400 mb-3">$350-$600. Removes 95%+ of contaminants.</p>
+              <a
+                href="https://www.springwellwater.com/reverse-osmosis-water-filter-system/" /* AFFILIATE: swap URL when approved */
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-block text-xs font-semibold text-teal-700 bg-teal-50 border border-teal-200 rounded-lg px-3 py-1.5 hover:bg-teal-100 transition-colors"
+              >
+                SpringWell RO System →
+              </a>
             </div>
             <div className="bg-white rounded-xl border border-gray-200 p-5">
               <span className="text-2xl block mb-2">🏠</span>
               <h3 className="font-bold text-sm text-gray-900 mb-1">Whole House</h3>
               <p className="text-xs text-gray-500 mb-2">Best for: sediment, chlorine, hard water</p>
-              <p className="text-xs text-gray-400">$300-$3,000. Filters all water in your home.</p>
+              <p className="text-xs text-gray-400 mb-3">$850-$2,500. Filters all water in your home.</p>
+              <a
+                href="https://www.springwellwater.com/whole-house-water-filter-system/" /* AFFILIATE: swap URL when approved */
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-block text-xs font-semibold text-teal-700 bg-teal-50 border border-teal-200 rounded-lg px-3 py-1.5 hover:bg-teal-100 transition-colors"
+              >
+                SpringWell Whole House →
+              </a>
             </div>
           </div>
-          <p className="text-xs text-gray-400 mt-3">
-            Filter recommendations are general guidance. Always check that a filter is
-            NSF-certified to remove the specific contaminants found in your water.
+
+          {/* Water testing CTA */}
+          <div className="mt-4 bg-white rounded-xl border border-gray-200 p-5 flex flex-col sm:flex-row items-start sm:items-center gap-4">
+            <div className="flex-1">
+              <h3 className="font-bold text-sm text-gray-900 mb-1">Not sure what filter you need?</h3>
+              <p className="text-xs text-gray-500">
+                Get your water professionally tested to find out exactly what contaminants are present.
+                EPA data shows system-level results; a home test shows what comes out of your tap.
+              </p>
+            </div>
+            <a
+              href="https://www.tapscore.com/" /* AFFILIATE: swap URL when approved */
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex-shrink-0 text-sm font-semibold text-white bg-teal-600 rounded-lg px-4 py-2 hover:bg-teal-700 transition-colors"
+            >
+              Order a Tap Score Test
+            </a>
+          </div>
+
+          <div className="flex items-center justify-between mt-3">
+            <p className="text-xs text-gray-400">
+              Filter recommendations are based on contaminants found in your water system.
+              Always check that a filter is NSF-certified.
+            </p>
+            <Link href="/filters" className="text-xs text-teal-600 hover:text-teal-800 font-medium whitespace-nowrap ml-4">
+              Full filter guide →
+            </Link>
+          </div>
+          <p className="text-[10px] text-gray-300 mt-1">
+            Some links are affiliate links. We may earn a commission at no extra cost to you.
           </p>
         </section>
 

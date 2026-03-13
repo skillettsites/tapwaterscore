@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
+import { AdSenseScript } from "@/components/AdSense";
 import "./globals.css";
 
 const inter = Inter({
@@ -50,6 +51,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
+      <head>
+        <AdSenseScript />
+      </head>
       <body className={`${inter.className} min-h-screen bg-gray-50 text-gray-900 antialiased`}>
         <script
           type="application/ld+json"
@@ -79,6 +83,7 @@ export default function RootLayout({
               <a href="/states" className="hover:text-gray-900 transition-colors">States</a>
               <a href="/contaminants" className="hover:text-gray-900 transition-colors">Contaminants</a>
               <a href="/filters" className="hover:text-gray-900 transition-colors">Filters</a>
+              <a href="/testing" className="hover:text-gray-900 transition-colors">Testing</a>
               <a href="/about" className="hover:text-gray-900 transition-colors">About</a>
             </nav>
           </div>
@@ -103,6 +108,7 @@ export default function RootLayout({
                   <li><a href="/states" className="hover:text-white transition-colors">Water Quality by State</a></li>
                   <li><a href="/contaminants" className="hover:text-white transition-colors">Contaminant Guide</a></li>
                   <li><a href="/filters" className="hover:text-white transition-colors">Filter Recommendations</a></li>
+                  <li><a href="/testing" className="hover:text-white transition-colors">Water Testing</a></li>
                   <li><a href="/about" className="hover:text-white transition-colors">About</a></li>
                   <li><a href="/privacy" className="hover:text-white transition-colors">Privacy Policy</a></li>
                   <li><a href="/terms" className="hover:text-white transition-colors">Terms</a></li>
