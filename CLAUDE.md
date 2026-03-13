@@ -15,8 +15,8 @@ US tap water quality lookup by ZIP code. Free basic water quality grade (A-F), w
 - `app/page.tsx` - Homepage with ZIP lookup
 - `app/zip/[zip]/page.tsx` - Water quality report page (ISR, 24h revalidation)
 - `app/states/` - Water quality by state (TODO)
-- `app/contaminants/` - Contaminant guide (TODO)
-- `app/filters/` - Filter recommendations (TODO)
+- `app/contaminants/page.tsx` - Contaminant guide (21 contaminants across 5 categories)
+- `app/filters/page.tsx` - Filter recommendations
 
 ## Architecture
 - Next.js 16 App Router, TypeScript strict, Tailwind CSS v4
@@ -38,7 +38,7 @@ US tap water quality lookup by ZIP code. Free basic water quality grade (A-F), w
 - Add Google Analytics tracking ID
 - Add Stripe for paid detailed reports
 - Build state comparison pages (programmatic SEO)
-- Build contaminant guide pages
+- ~~Build contaminant guide pages~~ DONE
 - Build filter recommendation pages with affiliate links
 - Add water filter affiliate programme links (Epic Water Filters 15%, Crystal Quest 15%)
 - Investigate EPA ECHO bulk CSV downloads for richer contaminant level data
