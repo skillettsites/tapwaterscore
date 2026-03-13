@@ -1,36 +1,29 @@
 /**
- * EPA Envirofacts SDWIS API client
+ * EPA Water Quality Data Client
  *
- * Base URL: https://data.epa.gov/efservice/
- * No API key required. Free. No authentication.
+ * Uses two data sources:
  *
- * Tables we use:
- * - WATER_SYSTEM: info about each public water system
- * - GEOGRAPHIC_AREA: ZIP code to water system mapping
- * - VIOLATION: violation records
- * - LCR_SAMPLE_RESULT: Lead and Copper Rule sample results
+ * 1. EPA Envirofacts SDWIS API (ZIP to water system mapping)
+ *    Base: https://data.epa.gov/efservice/
+ *    No API key. Free. Public domain.
  *
- * Format: append /JSON to get JSON response
- * Filtering: /column/value/ in the URL path
- * Pagination: /rows/start:end
+ * 2. EPA ECHO DFR (Detailed Facility Report) API (violations, lead/copper, system details)
+ *    Base: https://echodata.epa.gov/echo/
+ *    No API key. Free. Covers ALL US water systems (not just EPA direct-primacy).
+ *    This is the primary data source for violations and contaminant data.
+ *
+ * ZIP mapping note: The Envirofacts GEOGRAPHIC_AREA table is sparsely populated
+ * for state-primacy systems. As a fallback, we also search ECHO by city+state
+ * using a ZIP-to-city lookup.
+ *
+ * TODO: Download ECHO bulk CSV (SDWA_GEOGRAPHIC_AREAS.csv) for a complete
+ * pre-built ZIP-to-PWSID database. This would be more reliable than API lookups.
  */
 
-const EPA_BASE = "https://data.epa.gov/efservice";
+const ENVIROFACTS_BASE = "https://data.epa.gov/efservice";
+const ECHO_BASE = "https://echodata.epa.gov/echo";
 
-interface EpaWaterSystem {
-  PWSID: string;
-  PWS_NAME: string;
-  PRIMACY_AGENCY_CODE: string;
-  EPA_REGION: string;
-  PWS_TYPE_CODE: string;
-  POPULATION_SERVED_COUNT: number;
-  PRIMARY_SOURCE_CODE: string;
-  GW_SW_CODE: string;
-  STATE_CODE: string;
-  COUNTY_SERVED?: string;
-  CITY_SERVED?: string;
-  ZIP_CODE?: string;
-}
+// ── ZIP to Water System Mapping ──
 
 interface EpaGeographicArea {
   PWSID: string;
@@ -38,128 +31,377 @@ interface EpaGeographicArea {
   PWS_NAME?: string;
   AREA_TYPE_CODE: string;
   STATE_CODE: string;
-  ANSI_ENTITY_CODE?: string;
+  ZIP_CODE_SERVED?: string;
+  CITY_SERVED?: string;
+  COUNTY_SERVED?: string;
 }
 
-interface EpaViolation {
+interface EpaWaterSystem {
   PWSID: string;
-  VIOLATION_ID: string;
-  CONTAMINANT_CODE: string;
-  CONTAMINANT_NAME?: string;
-  VIOLATION_TYPE_CODE: string;
-  COMPLIANCE_PERIOD_BEGIN_DATE: string;
-  COMPLIANCE_PERIOD_END_DATE: string;
-  IS_HEALTH_BASED_IND: string;
-  VIOLATION_CATEGORY_CODE?: string;
-  ENFORCEMENT_ACTION?: string;
+  PWS_NAME: string;
+  STATE_CODE: string;
+  COUNTY_SERVED?: string;
+  CITY_SERVED?: string;
+  POPULATION_SERVED_COUNT: number;
+  PRIMARY_SOURCE_CODE: string;
+  GW_SW_CODE: string;
+  PWS_TYPE_CODE: string;
+  PWS_ACTIVITY_CODE?: string;
 }
 
-async function epaFetch<T>(path: string): Promise<T[]> {
-  const url = `${EPA_BASE}${path}/JSON`;
-  const res = await fetch(url, {
-    next: { revalidate: 86400 }, // Cache for 24 hours
-  });
-
-  if (!res.ok) {
-    console.error(`EPA API error: ${res.status} for ${url}`);
-    return [];
+async function fetchJson<T>(url: string, revalidate = 86400): Promise<T | null> {
+  try {
+    const res = await fetch(url, { next: { revalidate } });
+    if (!res.ok) {
+      console.error(`API error: ${res.status} for ${url}`);
+      return null;
+    }
+    return await res.json();
+  } catch (e) {
+    console.error(`Fetch error for ${url}:`, e);
+    return null;
   }
+}
 
-  const data = await res.json();
+async function fetchArray<T>(url: string): Promise<T[]> {
+  const data = await fetchJson<T[]>(url);
   return Array.isArray(data) ? data : [];
 }
 
 /**
- * Find water systems serving a ZIP code
+ * Find water systems serving a ZIP code using Envirofacts GEOGRAPHIC_AREA table
  */
-export async function getWaterSystemsByZip(zip: string): Promise<EpaWaterSystem[]> {
-  // GEOGRAPHIC_AREA table maps ZIP codes to water system IDs
-  const areas = await epaFetch<EpaGeographicArea>(
-    `/GEOGRAPHIC_AREA/AREA_TYPE_CODE/Z/GEO_ID/${zip}`
+async function getSystemsByZipEnvirofacts(zip: string): Promise<EpaWaterSystem[]> {
+  const areas = await fetchArray<EpaGeographicArea>(
+    `${ENVIROFACTS_BASE}/GEOGRAPHIC_AREA/AREA_TYPE_CODE/ZC/GEO_ID/${zip}/JSON`
   );
+
+  // Also try the ZIP field directly
+  if (areas.length === 0) {
+    const areas2 = await fetchArray<EpaGeographicArea>(
+      `${ENVIROFACTS_BASE}/GEOGRAPHIC_AREA/ZIP_CODE_SERVED/${zip}/JSON`
+    );
+    areas.push(...areas2);
+  }
 
   if (areas.length === 0) return [];
 
-  // Get unique PWS IDs
   const pwsIds = [...new Set(areas.map((a) => a.PWSID))];
-
-  // Fetch details for each water system
   const systems: EpaWaterSystem[] = [];
+
   for (const pwsId of pwsIds.slice(0, 10)) {
-    const results = await epaFetch<EpaWaterSystem>(
-      `/WATER_SYSTEM/PWSID/${pwsId}`
+    const results = await fetchArray<EpaWaterSystem>(
+      `${ENVIROFACTS_BASE}/WATER_SYSTEM/PWSID/${pwsId}/JSON`
     );
     systems.push(...results);
   }
 
-  // Filter to active community water systems
   return systems.filter(
-    (s) => s.PWS_TYPE_CODE === "CWS" || systems.length <= 1
+    (s) => s.PWS_TYPE_CODE === "CWS" || s.PWS_ACTIVITY_CODE === "A" || systems.length <= 1
   );
 }
 
 /**
- * Get violations for a water system
+ * Find water systems via ECHO search by city+state
+ * This covers state-primacy systems that Envirofacts misses
  */
-export async function getViolations(pwsId: string): Promise<EpaViolation[]> {
-  return epaFetch<EpaViolation>(
-    `/VIOLATION/PWSID/${pwsId}/rows/0:100`
-  );
+async function getSystemsByEchoSearch(city: string, state: string): Promise<string[]> {
+  const url = `${ECHO_BASE}/sdw_rest_services.get_systems?output=JSON&p_ct=${encodeURIComponent(city)}&p_st=${state}&p_act=Y`;
+  const data = await fetchJson<{ Results?: { QueryID?: string; QueryRows?: string } }>(url);
+
+  if (!data?.Results?.QueryID) return [];
+
+  const qid = data.Results.QueryID;
+  const downloadUrl = `${ECHO_BASE}/sdw_rest_services.get_download?qid=${qid}&output=JSON`;
+  const download = await fetchJson<{
+    Results?: { SDWASystemResults?: Array<{ PWSId?: string; PWSName?: string }> };
+  }>(downloadUrl);
+
+  const results = download?.Results?.SDWASystemResults || [];
+  return results.map((r) => r.PWSId || "").filter(Boolean);
+}
+
+// ── ECHO DFR Endpoints (Rich Data) ──
+
+interface EchoViolation {
+  ViolationID: string;
+  ContaminantName: string;
+  ContaminantCode: string;
+  ViolationCategoryCode: string;
+  ViolationCategoryDesc: string;
+  IsHealthBased: string;
+  ViolationMeasure: string;
+  UnitOfMeasure: string;
+  StateMCL: string;
+  FederalMCL: string;
+  CompliancePeriodBeginDate: string;
+  CompliancePeriodEndDate: string;
+  Status: string;
+  ResolvedDate: string;
+  EnforcementActions?: Array<{
+    EnforcementDate: string;
+    EnforcementActionTypeDesc: string;
+  }>;
+}
+
+interface EchoLeadCopper {
+  PB90Value: string;
+  PB90Units: string;
+  PB90Dates: string;
+  CU90Value: string;
+  CU90Units: string;
+  CU90Dates: string;
+  PbALE: string;
+  CuALE: string;
 }
 
 /**
- * Get all violations for a water system, returns mapped violations
+ * Get violations from ECHO DFR (much richer than Envirofacts)
  */
-export async function getSystemViolations(pwsId: string) {
-  const raw = await getViolations(pwsId);
+async function getEchoViolations(pwsId: string): Promise<EchoViolation[]> {
+  const url = `${ECHO_BASE}/dfr_rest_services.get_sdwa_violations?p_id=${pwsId}&output=JSON`;
+  const data = await fetchJson<{
+    Results?: {
+      SDWAViolations?: {
+        Sources?: Array<{
+          Violations?: EchoViolation[];
+        }>;
+      };
+    };
+  }>(url);
 
-  return raw.map((v) => ({
-    violationId: v.VIOLATION_ID,
-    pwsId: v.PWSID,
-    contaminantCode: v.CONTAMINANT_CODE,
-    contaminantName: v.CONTAMINANT_NAME || getContaminantName(v.CONTAMINANT_CODE),
-    violationType: v.VIOLATION_TYPE_CODE,
-    compliancePeriodBegin: v.COMPLIANCE_PERIOD_BEGIN_DATE,
-    compliancePeriodEnd: v.COMPLIANCE_PERIOD_END_DATE,
-    isHealthBased: v.IS_HEALTH_BASED_IND === "Y",
-    enforcementAction: v.ENFORCEMENT_ACTION,
-  }));
+  const sources = data?.Results?.SDWAViolations?.Sources || [];
+  const violations: EchoViolation[] = [];
+  for (const source of sources) {
+    if (source.Violations) {
+      violations.push(...source.Violations);
+    }
+  }
+  return violations;
 }
 
 /**
- * Build a complete water report for a ZIP code
+ * Get lead and copper data from ECHO DFR
  */
-export async function getWaterReport(zip: string) {
-  const systems = await getWaterSystemsByZip(zip);
+async function getEchoLeadCopper(pwsId: string): Promise<EchoLeadCopper | null> {
+  const url = `${ECHO_BASE}/dfr_rest_services.get_sdwa_lead_and_copper?p_id=${pwsId}&output=JSON`;
+  const data = await fetchJson<{
+    Results?: {
+      LeadAndCopper?: {
+        Sources?: Array<{
+          LeadSamples?: Array<{ PB90Value?: string; PB90Units?: string; PB90Dates?: string }>;
+          CopperSamples?: Array<{ CU90Value?: string; CU90Units?: string; CU90Dates?: string }>;
+          PbALE?: string;
+          CuALE?: string;
+        }>;
+      };
+    };
+  }>(url);
+
+  const sources = data?.Results?.LeadAndCopper?.Sources || [];
+  if (sources.length === 0) return null;
+
+  const source = sources[0];
+  const leadSample = source.LeadSamples?.[0];
+  const copperSample = source.CopperSamples?.[0];
+
+  return {
+    PB90Value: leadSample?.PB90Value || "",
+    PB90Units: leadSample?.PB90Units || "mg/L",
+    PB90Dates: leadSample?.PB90Dates || "",
+    CU90Value: copperSample?.CU90Value || "",
+    CU90Units: copperSample?.CU90Units || "mg/L",
+    CU90Dates: copperSample?.CU90Dates || "",
+    PbALE: source.PbALE || "0.015",
+    CuALE: source.CuALE || "1.3",
+  };
+}
+
+// ── ZIP-to-City mapping (simple built-in for common ZIPs) ──
+// TODO: Replace with a proper ZIP-to-city database or API
+
+async function zipToCity(zip: string): Promise<{ city: string; state: string } | null> {
+  // Use the Census geocoder as a fallback to map ZIP to city/state
+  const url = `https://geocoding.geo.census.gov/geocoder/geographies/onelineaddress?address=${zip}&benchmark=Public_AR_Current&vintage=Current_Current&format=json`;
+
+  try {
+    const res = await fetch(url, { next: { revalidate: 604800 } }); // Cache 7 days
+    if (!res.ok) return null;
+    const data = await res.json();
+    const match = data?.result?.addressMatches?.[0];
+    if (!match) {
+      // Try a simpler approach: search by ZIP in address components
+      const geo = data?.result?.addressMatches?.[0]?.geographies;
+      if (!geo) return null;
+    }
+
+    const components = match?.addressComponents;
+    if (components?.city && components?.state) {
+      return { city: components.city, state: components.state };
+    }
+  } catch {
+    // Fallback silently
+  }
+
+  return null;
+}
+
+// ── Main Report Builder ──
+
+export interface WaterReportData {
+  systems: Array<{
+    pwsId: string;
+    name: string;
+    state: string;
+    county: string;
+    populationServed: number;
+    sourceType: string;
+  }>;
+  primarySystem: {
+    pwsId: string;
+    name: string;
+    state: string;
+    county: string;
+    populationServed: number;
+    sourceType: string;
+  } | null;
+  violations: Array<{
+    violationId: string;
+    contaminantName: string;
+    contaminantCode: string;
+    category: string;
+    categoryDesc: string;
+    isHealthBased: boolean;
+    measure: string;
+    unit: string;
+    stateMcl: string;
+    federalMcl: string;
+    periodBegin: string;
+    periodEnd: string;
+    status: string;
+  }>;
+  leadCopper: {
+    lead90th: number | null;
+    leadUnit: string;
+    leadDate: string;
+    leadActionLevel: number;
+    leadExceeds: boolean;
+    copper90th: number | null;
+    copperUnit: string;
+    copperDate: string;
+    copperActionLevel: number;
+    copperExceeds: boolean;
+  } | null;
+  grade: "A" | "B" | "C" | "D" | "F";
+  gradeScore: number;
+  violationCount: number;
+  healthViolationCount: number;
+  recentHealthViolationCount: number;
+  topConcerns: Array<{
+    name: string;
+    violationCount: number;
+    isHealthBased: boolean;
+    category: string;
+  }>;
+  hasPfas: boolean;
+  hasLead: boolean;
+  zipCode: string;
+  lastUpdated: string;
+}
+
+export async function getWaterReport(zip: string): Promise<WaterReportData | null> {
+  // Step 1: Find water systems for this ZIP
+  let systems = await getSystemsByZipEnvirofacts(zip);
+
+  // Step 2: If Envirofacts returns nothing (common for state-primacy), try ECHO via city
+  if (systems.length === 0) {
+    const location = await zipToCity(zip);
+    if (location) {
+      const pwsIds = await getSystemsByEchoSearch(location.city, location.state);
+      // Get basic system info for each
+      for (const pwsId of pwsIds.slice(0, 5)) {
+        const results = await fetchArray<EpaWaterSystem>(
+          `${ENVIROFACTS_BASE}/WATER_SYSTEM/PWSID/${pwsId}/JSON`
+        );
+        if (results.length > 0) {
+          systems.push(...results);
+        }
+      }
+    }
+  }
 
   if (systems.length === 0) {
     return null;
   }
 
-  // Use the largest system (most people served) as the primary
-  const primary = systems.reduce((best, sys) =>
+  // Use the largest community water system as the primary
+  const cwsSystems = systems.filter((s) => s.PWS_TYPE_CODE === "CWS");
+  const pool = cwsSystems.length > 0 ? cwsSystems : systems;
+  const primary = pool.reduce((best, sys) =>
     (sys.POPULATION_SERVED_COUNT || 0) > (best.POPULATION_SERVED_COUNT || 0) ? sys : best
   );
 
-  // Get violations for the primary system
-  const violations = await getSystemViolations(primary.PWSID);
+  // Step 3: Get violations from ECHO DFR (richer data than Envirofacts)
+  const echoViolations = await getEchoViolations(primary.PWSID);
 
-  // Calculate grade
+  const violations = echoViolations.map((v) => ({
+    violationId: v.ViolationID,
+    contaminantName: v.ContaminantName || getContaminantName(v.ContaminantCode),
+    contaminantCode: v.ContaminantCode,
+    category: v.ViolationCategoryCode,
+    categoryDesc: v.ViolationCategoryDesc || formatViolationCategory(v.ViolationCategoryCode),
+    isHealthBased: v.IsHealthBased === "Y" || v.IsHealthBased === "Yes",
+    measure: v.ViolationMeasure,
+    unit: v.UnitOfMeasure,
+    stateMcl: v.StateMCL,
+    federalMcl: v.FederalMCL,
+    periodBegin: v.CompliancePeriodBeginDate,
+    periodEnd: v.CompliancePeriodEndDate,
+    status: v.Status,
+  }));
+
+  // Step 4: Get lead and copper data
+  const lcData = await getEchoLeadCopper(primary.PWSID);
+  let leadCopper = null;
+  if (lcData) {
+    const lead90 = parseFloat(lcData.PB90Value);
+    const copper90 = parseFloat(lcData.CU90Value);
+    const leadAL = parseFloat(lcData.PbALE) || 0.015;
+    const copperAL = parseFloat(lcData.CuALE) || 1.3;
+
+    leadCopper = {
+      lead90th: isNaN(lead90) ? null : lead90,
+      leadUnit: lcData.PB90Units || "mg/L",
+      leadDate: lcData.PB90Dates,
+      leadActionLevel: leadAL,
+      leadExceeds: !isNaN(lead90) && lead90 > leadAL,
+      copper90th: isNaN(copper90) ? null : copper90,
+      copperUnit: lcData.CU90Units || "mg/L",
+      copperDate: lcData.CU90Dates,
+      copperActionLevel: copperAL,
+      copperExceeds: !isNaN(copper90) && copper90 > copperAL,
+    };
+  }
+
+  // Step 5: Calculate grade
   const healthViolations = violations.filter((v) => v.isHealthBased);
+  const currentYear = new Date().getFullYear();
   const recentViolations = violations.filter((v) => {
-    const year = parseInt(v.compliancePeriodEnd?.slice(0, 4) || "0");
-    return year >= new Date().getFullYear() - 5;
+    const year = parseInt(v.periodEnd?.slice(0, 4) || "0");
+    return year >= currentYear - 5;
   });
   const recentHealthViolations = recentViolations.filter((v) => v.isHealthBased);
 
   let score = 100;
-  // Deduct for health violations (recent are worse)
   score -= recentHealthViolations.length * 15;
   score -= (healthViolations.length - recentHealthViolations.length) * 5;
-  // Deduct for other violations
   score -= (recentViolations.length - recentHealthViolations.length) * 3;
   score -= (violations.length - recentViolations.length) * 1;
-  // Floor at 0
+
+  // Lead/copper exceedances
+  if (leadCopper?.leadExceeds) score -= 20;
+  if (leadCopper?.copperExceeds) score -= 10;
+
   score = Math.max(0, Math.min(100, score));
 
   const grade = score >= 90 ? "A" as const
@@ -168,71 +410,71 @@ export async function getWaterReport(zip: string) {
     : score >= 35 ? "D" as const
     : "F" as const;
 
-  // Group violations by contaminant to find top concerns
-  const contaminantCounts = new Map<string, number>();
+  // Top concerns by contaminant
+  const contaminantMap = new Map<string, { count: number; isHealthBased: boolean; category: string }>();
   for (const v of violations) {
-    const name = v.contaminantName || v.contaminantCode;
-    contaminantCounts.set(name, (contaminantCounts.get(name) || 0) + 1);
+    const name = v.contaminantName;
+    const existing = contaminantMap.get(name);
+    if (existing) {
+      existing.count++;
+      if (v.isHealthBased) existing.isHealthBased = true;
+    } else {
+      contaminantMap.set(name, { count: 1, isHealthBased: v.isHealthBased, category: v.categoryDesc });
+    }
   }
 
-  const topConcerns = [...contaminantCounts.entries()]
-    .sort((a, b) => b[1] - a[1])
+  const topConcerns = [...contaminantMap.entries()]
+    .sort((a, b) => b[1].count - a[1].count)
     .slice(0, 5)
-    .map(([name, count]) => ({
+    .map(([name, data]) => ({
       name,
-      violationCount: count,
-      isHealthBased: violations.some(
-        (v) => (v.contaminantName || v.contaminantCode) === name && v.isHealthBased
-      ),
+      violationCount: data.count,
+      isHealthBased: data.isHealthBased,
+      category: data.category,
     }));
 
-  // Check for PFAS-related violations
+  // PFAS check
   const pfasTerms = ["PFOA", "PFOS", "PFAS", "GenX", "PFBS", "PFHxS", "PFNA", "PFDA"];
-  const pfasViolations = violations.filter((v) =>
-    pfasTerms.some((term) =>
-      (v.contaminantName || "").toUpperCase().includes(term)
-    )
+  const hasPfas = violations.some((v) =>
+    pfasTerms.some((term) => v.contaminantName.toUpperCase().includes(term))
   );
 
+  // Lead check
+  const hasLead = (leadCopper?.lead90th != null && leadCopper.lead90th > 0) ||
+    violations.some((v) => v.contaminantName.toLowerCase().includes("lead"));
+
+  const mapSystem = (s: EpaWaterSystem) => ({
+    pwsId: s.PWSID,
+    name: s.PWS_NAME,
+    state: s.STATE_CODE,
+    county: s.COUNTY_SERVED || "",
+    populationServed: s.POPULATION_SERVED_COUNT || 0,
+    sourceType: s.GW_SW_CODE === "GW" ? "Ground water"
+      : s.GW_SW_CODE === "SW" ? "Surface water"
+      : s.GW_SW_CODE === "GU" ? "Ground water under influence"
+      : s.GW_SW_CODE || "Unknown",
+  });
+
   return {
-    systems: systems.map((s) => ({
-      pwsId: s.PWSID,
-      name: s.PWS_NAME,
-      state: s.STATE_CODE,
-      county: s.COUNTY_SERVED || "",
-      populationServed: s.POPULATION_SERVED_COUNT || 0,
-      sourceType: s.GW_SW_CODE === "GW" ? "Ground water"
-        : s.GW_SW_CODE === "SW" ? "Surface water"
-        : s.GW_SW_CODE === "GU" ? "Ground water under influence"
-        : s.GW_SW_CODE || "Unknown",
-      primarySource: s.PRIMARY_SOURCE_CODE || "",
-    })),
-    primarySystem: {
-      pwsId: primary.PWSID,
-      name: primary.PWS_NAME,
-      state: primary.STATE_CODE,
-      county: primary.COUNTY_SERVED || "",
-      populationServed: primary.POPULATION_SERVED_COUNT || 0,
-      sourceType: primary.GW_SW_CODE === "GW" ? "Ground water"
-        : primary.GW_SW_CODE === "SW" ? "Surface water"
-        : primary.GW_SW_CODE === "GU" ? "Ground water under influence"
-        : primary.GW_SW_CODE || "Unknown",
-      primarySource: primary.PRIMARY_SOURCE_CODE || "",
-    },
+    systems: systems.map(mapSystem),
+    primarySystem: mapSystem(primary),
     violations,
+    leadCopper,
     grade,
     gradeScore: score,
     violationCount: violations.length,
     healthViolationCount: healthViolations.length,
+    recentHealthViolationCount: recentHealthViolations.length,
     topConcerns,
-    hasPfas: pfasViolations.length > 0,
-    pfasViolations,
+    hasPfas,
+    hasLead,
     zipCode: zip,
     lastUpdated: new Date().toISOString().slice(0, 10),
   };
 }
 
-// Common contaminant code to name mapping
+// ── Helpers ──
+
 function getContaminantName(code: string): string {
   const names: Record<string, string> = {
     "1005": "Barium",
@@ -266,4 +508,17 @@ function getContaminantName(code: string): string {
     "7500": "GenX",
   };
   return names[code] || `Contaminant ${code}`;
+}
+
+function formatViolationCategory(code: string): string {
+  const categories: Record<string, string> = {
+    MCL: "Maximum Contaminant Level",
+    MRDL: "Maximum Residual Disinfectant Level",
+    TT: "Treatment Technique",
+    MON: "Monitoring",
+    RPT: "Reporting",
+    MR: "Monitoring & Reporting",
+    Other: "Other",
+  };
+  return categories[code] || code;
 }
