@@ -101,24 +101,36 @@ async function getSystemsByZipEnvirofacts(zip: string): Promise<EpaWaterSystem[]
   );
 }
 
+interface EchoSystemResult {
+  PWSId: string;
+  PWSName: string;
+  StateCode: string;
+  CountiesServed: string;
+  PopulationServedCount: string;
+  PrimarySourceCode: string;
+  GwSwCode: string;
+  PWSTypeCode: string;
+  PWSActivityCode: string;
+}
+
 /**
  * Find water systems via ECHO search by city+state
  * This covers state-primacy systems that Envirofacts misses
+ * Returns full system info directly from ECHO (no need to re-fetch from Envirofacts)
  */
-async function getSystemsByEchoSearch(city: string, state: string): Promise<string[]> {
+async function getSystemsByEchoSearch(city: string, state: string): Promise<EchoSystemResult[]> {
   const url = `${ECHO_BASE}/sdw_rest_services.get_systems?output=JSON&p_ct=${encodeURIComponent(city)}&p_st=${state}&p_act=Y`;
   const data = await fetchJson<{ Results?: { QueryID?: string; QueryRows?: string } }>(url);
 
-  if (!data?.Results?.QueryID) return [];
+  if (!data?.Results?.QueryID || data.Results.QueryRows === "0") return [];
 
   const qid = data.Results.QueryID;
-  const downloadUrl = `${ECHO_BASE}/sdw_rest_services.get_download?qid=${qid}&output=JSON`;
-  const download = await fetchJson<{
-    Results?: { SDWASystemResults?: Array<{ PWSId?: string; PWSName?: string }> };
-  }>(downloadUrl);
+  const qidUrl = `${ECHO_BASE}/sdw_rest_services.get_qid?qid=${qid}&output=JSON`;
+  const qidData = await fetchJson<{
+    Results?: { WaterSystems?: EchoSystemResult[] };
+  }>(qidUrl);
 
-  const results = download?.Results?.SDWASystemResults || [];
-  return results.map((r) => r.PWSId || "").filter(Boolean);
+  return qidData?.Results?.WaterSystems || [];
 }
 
 // ── ECHO DFR Endpoints (Rich Data) ──
@@ -221,23 +233,16 @@ async function getEchoLeadCopper(pwsId: string): Promise<EchoLeadCopper | null> 
 // TODO: Replace with a proper ZIP-to-city database or API
 
 async function zipToCity(zip: string): Promise<{ city: string; state: string } | null> {
-  // Use the Census geocoder as a fallback to map ZIP to city/state
-  const url = `https://geocoding.geo.census.gov/geocoder/geographies/onelineaddress?address=${zip}&benchmark=Public_AR_Current&vintage=Current_Current&format=json`;
+  // Zippopotam.us: free, no API key, reliable ZIP-to-city lookup
+  const url = `https://api.zippopotam.us/us/${zip}`;
 
   try {
     const res = await fetch(url, { next: { revalidate: 604800 } }); // Cache 7 days
     if (!res.ok) return null;
     const data = await res.json();
-    const match = data?.result?.addressMatches?.[0];
-    if (!match) {
-      // Try a simpler approach: search by ZIP in address components
-      const geo = data?.result?.addressMatches?.[0]?.geographies;
-      if (!geo) return null;
-    }
-
-    const components = match?.addressComponents;
-    if (components?.city && components?.state) {
-      return { city: components.city, state: components.state };
+    const place = data?.places?.[0];
+    if (place?.["place name"] && place?.["state abbreviation"]) {
+      return { city: place["place name"], state: place["state abbreviation"] };
     }
   } catch {
     // Fallback silently
@@ -317,15 +322,20 @@ export async function getWaterReport(zip: string): Promise<WaterReportData | nul
   if (systems.length === 0) {
     const location = await zipToCity(zip);
     if (location) {
-      const pwsIds = await getSystemsByEchoSearch(location.city, location.state);
-      // Get basic system info for each
-      for (const pwsId of pwsIds.slice(0, 5)) {
-        const results = await fetchArray<EpaWaterSystem>(
-          `${ENVIROFACTS_BASE}/WATER_SYSTEM/PWSID/${pwsId}/JSON`
-        );
-        if (results.length > 0) {
-          systems.push(...results);
-        }
+      const echoSystems = await getSystemsByEchoSearch(location.city, location.state);
+      // Convert ECHO results to our internal format
+      for (const es of echoSystems.slice(0, 10)) {
+        systems.push({
+          PWSID: es.PWSId,
+          PWS_NAME: es.PWSName,
+          STATE_CODE: es.StateCode,
+          COUNTY_SERVED: es.CountiesServed,
+          POPULATION_SERVED_COUNT: parseInt(es.PopulationServedCount) || 0,
+          PRIMARY_SOURCE_CODE: es.PrimarySourceCode,
+          GW_SW_CODE: es.GwSwCode,
+          PWS_TYPE_CODE: es.PWSTypeCode,
+          PWS_ACTIVITY_CODE: es.PWSActivityCode,
+        });
       }
     }
   }
