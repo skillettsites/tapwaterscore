@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import { AdSenseScript } from "@/components/AdSense";
+import { GoogleAnalytics } from "@/components/GoogleAnalytics";
 import "./globals.css";
 
 const inter = Inter({
@@ -54,6 +55,7 @@ export default function RootLayout({
       <head>
         <AdSenseScript />
       </head>
+      <GoogleAnalytics />
       <body className={`${inter.className} min-h-screen bg-gray-50 text-gray-900 antialiased`}>
         <script
           type="application/ld+json"
