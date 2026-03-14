@@ -14,7 +14,11 @@ US tap water quality lookup by ZIP code. Free basic water quality grade (A-F), w
 - `components/ZipLookup.tsx` - ZIP code search component
 - `app/page.tsx` - Homepage with ZIP lookup
 - `app/zip/[zip]/page.tsx` - Water quality report page (ISR, 24h revalidation)
-- `app/states/` - Water quality by state (TODO)
+- `app/states/page.tsx` - Water quality by state directory (all 50 states + DC)
+- `app/states/[slug]/page.tsx` - Individual state pages with ZIP lookup (SSG via generateStaticParams)
+- `app/cities/page.tsx` - Water quality by city directory (200+ cities, all 50 states + DC)
+- `app/cities/[state]/[city]/page.tsx` - Individual city pages (SSG via generateStaticParams)
+- `lib/cities.ts` - City data: 201 cities with water source, concerns, overview, nearby cities
 - `app/contaminants/page.tsx` - Contaminant guide (21 contaminants across 5 categories)
 - `app/filters/page.tsx` - Filter recommendations
 
@@ -37,8 +41,9 @@ US tap water quality lookup by ZIP code. Free basic water quality grade (A-F), w
 - Sign up for EPA Envirofacts API key if rate limited (check if needed)
 - Add Google Analytics tracking ID
 - Add Stripe for paid detailed reports
-- Build state comparison pages (programmatic SEO)
+- ~~Build state comparison pages (programmatic SEO)~~ DONE (directory + 51 individual state pages)
 - ~~Build contaminant guide pages~~ DONE
+- ~~Build city-level pages (programmatic SEO)~~ DONE (201 cities across all 50 states + DC)
 - Build filter recommendation pages with affiliate links
 - Add water filter affiliate programme links (Epic Water Filters 15%, Crystal Quest 15%)
 - Investigate EPA ECHO bulk CSV downloads for richer contaminant level data

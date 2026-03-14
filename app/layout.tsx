@@ -88,6 +88,7 @@ export default function RootLayout({
             </a>
             <nav className="flex items-center gap-6 text-sm text-gray-600">
               <a href="/states" className="hover:text-gray-900 transition-colors">States</a>
+              <a href="/cities" className="hover:text-gray-900 transition-colors">Cities</a>
               <a href="/contaminants" className="hover:text-gray-900 transition-colors">Contaminants</a>
               <a href="/filters" className="hover:text-gray-900 transition-colors">Filters</a>
               <a href="/testing" className="hover:text-gray-900 transition-colors">Testing</a>
@@ -120,6 +121,7 @@ export default function RootLayout({
                 <ul className="space-y-2">
                   <li><a href="/" className="hover:text-white transition-colors">Check Your Water</a></li>
                   <li><a href="/states" className="hover:text-white transition-colors">Water Quality by State</a></li>
+                  <li><a href="/cities" className="hover:text-white transition-colors">Water Quality by City</a></li>
                   <li><a href="/contaminants" className="hover:text-white transition-colors">Contaminant Guide</a></li>
                   <li><a href="/filters" className="hover:text-white transition-colors">Filter Recommendations</a></li>
                   <li><a href="/testing" className="hover:text-white transition-colors">Water Testing</a></li>
