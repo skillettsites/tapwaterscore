@@ -17,6 +17,8 @@ US tap water quality lookup by ZIP code. Free basic water quality grade (A-F), w
 - `data/raw/` - Raw EPA bulk CSVs (gitignored, download via scripts)
 - `scripts/process-ucmr5.js` - Processes UCMR5 raw data into pfas-compact.json
 - `scripts/process-sdwa-geo2.js` - Processes SDWA CSVs into zip-to-systems.json
+- `scripts/process-violations.js` - Processes SDWA_VIOLATIONS_ENFORCEMENT.csv into violations-by-zip.json
+- `lib/violations-data.ts` - Historical violation data module (reads violations-by-zip.json)
 - `components/ZipLookup.tsx` - ZIP code search component
 - `app/page.tsx` - Homepage with ZIP lookup
 - `app/zip/[zip]/page.tsx` - Water quality report page (ISR, 24h revalidation)
@@ -46,6 +48,8 @@ US tap water quality lookup by ZIP code. Free basic water quality grade (A-F), w
 - EPA SDWA Bulk CSVs (ECHO downloads): https://echo.epa.gov/files/echodownloads/
   - SDWA_GEOGRAPHIC_AREAS.csv + SDWA_PUB_WATER_SYSTEMS.csv -> data/processed/zip-to-systems.json (20,609 ZIPs)
   - Used as fast pre-built ZIP-to-PWSID lookup (falls back to API if not found)
+  - SDWA_VIOLATIONS_ENFORCEMENT.csv -> data/processed/violations-by-zip.json (20,357 ZIPs, 5.3M unique violations)
+  - 10+ years of violation history per ZIP, with trend analysis (improving/worsening)
 - EPA UCMR5 Bulk Data: https://www.epa.gov/dwucmr/occurrence-data-unregulated-contaminant-monitoring-rule
   - data/processed/pfas-compact.json (9,823 ZIPs with actual PFAS lab measurements)
   - 5,018 ZIPs exceed EPA MCLs for PFOA/PFOS/PFHxS/PFNA/HFPO-DA
@@ -62,4 +66,5 @@ US tap water quality lookup by ZIP code. Free basic water quality grade (A-F), w
 - Add water filter affiliate programme links (Epic Water Filters 15%, Crystal Quest 15%)
 - ~~Investigate EPA ECHO bulk CSV downloads for richer contaminant level data~~ DONE (UCMR5 PFAS + SDWA geographic/system data integrated)
 - Investigate Water Quality Portal API for additional data
-- Re-run scripts/process-ucmr5.js and scripts/process-sdwa-geo2.js quarterly when EPA updates data
+- ~~Download SDWA bulk violations CSV and build local violations database~~ DONE (20,357 ZIPs, trend analysis, integrated into grading)
+- Re-run scripts/process-ucmr5.js, process-sdwa-geo2.js, and process-violations.js quarterly when EPA updates data

@@ -318,10 +318,94 @@ export default async function WaterReportPage({ params }: PageProps) {
           </section>
         )}
 
-        {/* Violation history table */}
+        {/* Historical violation summary from bulk SDWA data */}
+        {report.violationHistory && report.violationHistory.totalViolations > 0 && (
+          <section>
+            <h2 className="text-xl font-bold text-gray-900 mb-4">
+              Long-Term Violation History
+              {report.violationHistory.yearsCovered > 0 && (
+                <span className="ml-2 text-sm font-normal text-gray-400">
+                  ({report.violationHistory.yearsCovered} years of records)
+                </span>
+              )}
+            </h2>
+            <div className="bg-white rounded-xl border border-gray-200 p-6">
+              {/* Trend indicator */}
+              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 mb-5">
+                <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-semibold ${
+                  report.violationHistory.trend === "improving"
+                    ? "bg-green-50 text-green-700 border border-green-200"
+                    : report.violationHistory.trend === "worsening"
+                    ? "bg-red-50 text-red-700 border border-red-200"
+                    : report.violationHistory.trend === "new"
+                    ? "bg-orange-50 text-orange-700 border border-orange-200"
+                    : "bg-gray-50 text-gray-600 border border-gray-200"
+                }`}>
+                  <span>{
+                    report.violationHistory.trend === "improving" ? "↓"
+                    : report.violationHistory.trend === "worsening" ? "↑"
+                    : report.violationHistory.trend === "new" ? "●"
+                    : "→"
+                  }</span>
+                  {report.violationHistory.trendLabel}
+                </div>
+                {report.violationHistory.firstViolationDate && report.violationHistory.lastViolationDate && (
+                  <p className="text-xs text-gray-400">
+                    Records from {report.violationHistory.firstViolationDate} to {report.violationHistory.lastViolationDate}
+                  </p>
+                )}
+              </div>
+
+              {/* Stats grid */}
+              <div className="grid grid-cols-3 gap-4 mb-5">
+                <div className="text-center p-3 bg-gray-50 rounded-lg">
+                  <p className={`text-2xl font-bold ${report.violationHistory.totalViolations > 0 ? "text-yellow-600" : "text-green-600"}`}>
+                    {report.violationHistory.totalViolations}
+                  </p>
+                  <p className="text-xs text-gray-500">Total violations</p>
+                </div>
+                <div className="text-center p-3 bg-gray-50 rounded-lg">
+                  <p className={`text-2xl font-bold ${report.violationHistory.healthViolations > 0 ? "text-red-600" : "text-green-600"}`}>
+                    {report.violationHistory.healthViolations}
+                  </p>
+                  <p className="text-xs text-gray-500">Health violations</p>
+                </div>
+                <div className="text-center p-3 bg-gray-50 rounded-lg">
+                  <p className={`text-2xl font-bold ${report.violationHistory.recentHealthViolations > 0 ? "text-red-600" : "text-green-600"}`}>
+                    {report.violationHistory.recentHealthViolations}
+                  </p>
+                  <p className="text-xs text-gray-500">Recent (3yr)</p>
+                </div>
+              </div>
+
+              {/* Top contaminants from history */}
+              {report.violationHistory.topContaminants.length > 0 && (
+                <div>
+                  <h3 className="text-sm font-semibold text-gray-700 mb-2">Top Historical Contaminants</h3>
+                  <div className="flex flex-wrap gap-2">
+                    {report.violationHistory.topContaminants.map((c) => (
+                      <span
+                        key={c.name}
+                        className="inline-flex items-center gap-1 text-xs font-medium bg-gray-100 text-gray-700 px-2.5 py-1 rounded-full"
+                      >
+                        {c.name}
+                        <span className="text-gray-400">({c.count})</span>
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+            <p className="text-[10px] text-gray-400 mt-2">
+              Source: EPA Safe Drinking Water Information System (SDWIS) bulk data. Includes all violations reported to the EPA since records began.
+            </p>
+          </section>
+        )}
+
+        {/* Recent violation details table */}
         {report.violations.length > 0 && (
           <section>
-            <h2 className="text-xl font-bold text-gray-900 mb-4">Violation History</h2>
+            <h2 className="text-xl font-bold text-gray-900 mb-4">Recent Violations (Detail)</h2>
             <div className="bg-white rounded-xl border border-gray-200 overflow-x-auto">
               <table className="w-full text-sm">
                 <thead className="bg-gray-50 border-b border-gray-200">

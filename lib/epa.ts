@@ -24,6 +24,7 @@
 
 import { getPfasData, type PfasReport } from "./pfas-data";
 import { getSystemsForZip } from "./zip-systems";
+import { getViolationsForZip, type ViolationHistory } from "./violations-data";
 
 const ENVIROFACTS_BASE = "https://data.epa.gov/efservice";
 const ECHO_BASE = "https://echodata.epa.gov/echo";
@@ -316,6 +317,7 @@ export interface WaterReportData {
   hasPfas: boolean;
   hasLead: boolean;
   pfasReport: PfasReport | null;
+  violationHistory: ViolationHistory | null;
   zipCode: string;
   lastUpdated: string;
 }
@@ -426,6 +428,9 @@ export async function getWaterReport(zip: string): Promise<WaterReportData | nul
   // Step 5: Get PFAS data from UCMR5 bulk dataset
   const pfasReport = getPfasData(zip);
 
+  // Step 5b: Get historical violation data from bulk SDWA database
+  const violationHistory = getViolationsForZip(zip);
+
   // Step 6: Calculate grade
   const healthViolations = violations.filter((v) => v.isHealthBased);
   const currentYear = new Date().getFullYear();
@@ -447,6 +452,17 @@ export async function getWaterReport(zip: string): Promise<WaterReportData | nul
 
   // PFAS exceedances from UCMR5 lab data
   if (pfasReport?.exceedsMcl) score -= 10;
+
+  // Historical violation trend from bulk SDWA data (10+ year history)
+  if (violationHistory) {
+    // Factor in long-term health violation history beyond what ECHO API returns
+    const historicalHealthExtra = Math.max(0, violationHistory.healthViolations - healthViolations.length);
+    score -= Math.min(historicalHealthExtra, 10) * 2; // Cap at -20 for historical
+
+    // Trend penalty/bonus
+    if (violationHistory.trend === "worsening") score -= 5;
+    if (violationHistory.trend === "improving" && violationHistory.healthViolations > 0) score += 3;
+  }
 
   score = Math.max(0, Math.min(100, score));
 
@@ -516,6 +532,7 @@ export async function getWaterReport(zip: string): Promise<WaterReportData | nul
     hasPfas,
     hasLead,
     pfasReport,
+    violationHistory,
     zipCode: zip,
     lastUpdated: new Date().toISOString().slice(0, 10),
   };
