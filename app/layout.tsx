@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import { AdSenseScript } from "@/components/AdSense";
 import { GoogleAnalytics } from "@/components/GoogleAnalytics";
+import Header from "@/components/Header";
 import "./globals.css";
 
 const inter = Inter({
@@ -76,28 +77,7 @@ export default function RootLayout({
             }),
           }}
         />
-        <header className="bg-white border-b border-gray-200">
-          <div className="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between">
-            <a href="/" className="flex items-center gap-2 group">
-              <svg width="28" height="28" viewBox="0 0 28 28" fill="none" className="shrink-0">
-                <circle cx="14" cy="14" r="13" className="fill-teal-50 stroke-teal-500" strokeWidth="1.5" />
-                <path d="M14 6c0 0-5.5 6.5-5.5 10.5a5.5 5.5 0 0 0 11 0C19.5 12.5 14 6 14 6z" className="fill-teal-500" />
-                <path d="M14 6c0 0-5.5 6.5-5.5 10.5a5.5 5.5 0 0 0 11 0C19.5 12.5 14 6 14 6z" className="fill-cyan-400" opacity="0.4" />
-              </svg>
-              <span className="text-lg font-extrabold bg-gradient-to-r from-teal-600 to-cyan-500 bg-clip-text text-transparent group-hover:from-teal-700 group-hover:to-cyan-600 transition-all">
-                TapWaterScore
-              </span>
-            </a>
-            <nav className="flex items-center gap-6 text-sm text-gray-600">
-              <a href="/states" className="hover:text-gray-900 transition-colors">States</a>
-              <a href="/cities" className="hover:text-gray-900 transition-colors">Cities</a>
-              <a href="/contaminants" className="hover:text-gray-900 transition-colors">Contaminants</a>
-              <a href="/filters" className="hover:text-gray-900 transition-colors">Filters</a>
-              <a href="/testing" className="hover:text-gray-900 transition-colors">Testing</a>
-              <a href="/about" className="hover:text-gray-900 transition-colors">About</a>
-            </nav>
-          </div>
-        </header>
+        <Header />
         <main>{children}</main>
         <footer className="bg-slate-900 text-gray-400 border-t border-white/10">
           <div className="max-w-6xl mx-auto px-4 py-10">

@@ -258,16 +258,16 @@ export default async function WaterReportPage({ params }: PageProps) {
               <table className="w-full text-sm">
                 <thead className="bg-gray-50 border-b border-gray-200">
                   <tr>
-                    <th className="px-4 py-3 text-left font-medium text-gray-500">Contaminant</th>
-                    <th className="px-4 py-3 text-left font-medium text-gray-500">Category</th>
-                    <th className="px-4 py-3 text-left font-medium text-gray-500">Period</th>
-                    <th className="px-4 py-3 text-left font-medium text-gray-500">Status</th>
+                    <th className="px-2 sm:px-4 py-3 text-left font-medium text-gray-500">Contaminant</th>
+                    <th className="px-2 sm:px-4 py-3 text-left font-medium text-gray-500">Category</th>
+                    <th className="px-2 sm:px-4 py-3 text-left font-medium text-gray-500">Period</th>
+                    <th className="px-2 sm:px-4 py-3 text-left font-medium text-gray-500">Status</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
                   {report.violations.slice(0, 25).map((v, i) => (
                     <tr key={`${v.violationId}-${i}`} className="hover:bg-gray-50">
-                      <td className="px-4 py-3">
+                      <td className="px-2 sm:px-4 py-3">
                         <span className="font-medium text-gray-900">{v.contaminantName}</span>
                         {v.isHealthBased && (
                           <span className="ml-2 text-[10px] font-bold text-red-600 bg-red-50 px-1.5 py-0.5 rounded-full">
@@ -275,11 +275,11 @@ export default async function WaterReportPage({ params }: PageProps) {
                           </span>
                         )}
                       </td>
-                      <td className="px-4 py-3 text-gray-600 text-xs">{v.categoryDesc}</td>
-                      <td className="px-4 py-3 text-gray-600 text-xs">
+                      <td className="px-2 sm:px-4 py-3 text-gray-600 text-xs">{v.categoryDesc}</td>
+                      <td className="px-2 sm:px-4 py-3 text-gray-600 text-xs">
                         {formatDate(v.periodBegin)} - {formatDate(v.periodEnd)}
                       </td>
-                      <td className="px-4 py-3">
+                      <td className="px-2 sm:px-4 py-3">
                         <span className={`text-xs font-medium ${
                           v.status === "Resolved" || v.status === "R"
                             ? "text-green-600"
@@ -393,12 +393,12 @@ export default async function WaterReportPage({ params }: PageProps) {
             </a>
           </div>
 
-          <div className="flex items-center justify-between mt-3">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 mt-3">
             <p className="text-xs text-gray-400">
               Filter recommendations are based on contaminants found in your water system.
               Always check that a filter is NSF-certified.
             </p>
-            <Link href="/filters" className="text-xs text-teal-600 hover:text-teal-800 font-medium whitespace-nowrap ml-4">
+            <Link href="/filters" className="text-xs text-teal-600 hover:text-teal-800 font-medium whitespace-nowrap">
               Full filter guide →
             </Link>
           </div>

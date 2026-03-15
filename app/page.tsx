@@ -154,7 +154,7 @@ export default function Home() {
 
           {/* Free vs Premium */}
           <div className="max-w-2xl mx-auto mb-14">
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="bg-white rounded-2xl shadow-md border border-gray-200/80 p-5">
                 <span className="inline-block px-2.5 py-0.5 bg-gray-100 text-gray-700 rounded-full text-xs font-bold">FREE</span>
                 <p className="text-xs text-gray-400 mt-1 mb-3">No sign-up needed</p>
