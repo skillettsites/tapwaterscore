@@ -41,3 +41,6 @@ yarn-error.log*
 next-env.d.ts
 
 .vercel
+
+# bulk data (raw files too large for git; processed JSON files are committed)
+/data/raw/

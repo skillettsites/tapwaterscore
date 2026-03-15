@@ -230,20 +230,88 @@ export default async function WaterReportPage({ params }: PageProps) {
           </section>
         )}
 
-        {/* PFAS alert */}
+        {/* PFAS section */}
         {report.hasPfas && (
           <section>
-            <div className="bg-red-50 border border-red-200 rounded-xl p-6">
+            <h2 className="text-xl font-bold text-gray-900 mb-4">PFAS (&quot;Forever Chemicals&quot;)</h2>
+            <div className={`rounded-xl border p-6 ${
+              report.pfasReport?.exceedsMcl
+                ? "bg-red-50 border-red-200"
+                : report.pfasReport
+                  ? "bg-yellow-50 border-yellow-200"
+                  : "bg-red-50 border-red-200"
+            }`}>
               <div className="flex items-start gap-3">
                 <span className="text-2xl">🧪</span>
-                <div>
-                  <h3 className="font-bold text-red-800 mb-1">PFAS Detected in Your Water System</h3>
-                  <p className="text-sm text-red-700 leading-relaxed">
+                <div className="flex-1">
+                  <h3 className={`font-bold mb-1 ${
+                    report.pfasReport?.exceedsMcl ? "text-red-800" : "text-yellow-800"
+                  }`}>
+                    PFAS Detected in Your Water System
+                    {report.pfasReport?.exceedsMcl && (
+                      <span className="ml-2 text-xs font-bold text-red-600 bg-red-100 px-2 py-0.5 rounded-full">
+                        Exceeds EPA Limit
+                      </span>
+                    )}
+                  </h3>
+                  <p className="text-sm text-gray-700 leading-relaxed mb-4">
                     PFAS (&quot;forever chemicals&quot;) have been detected in your water system.
-                    These synthetic chemicals don&apos;t break down and have been linked to cancer,
+                    These synthetic chemicals do not break down and have been linked to cancer,
                     thyroid disease, and immune system effects. A reverse osmosis or NSF-certified
                     activated carbon filter can remove PFAS from your drinking water.
                   </p>
+
+                  {/* Detailed PFAS levels from UCMR5 */}
+                  {report.pfasReport && report.pfasReport.contaminants.length > 0 && (
+                    <div className="bg-white/70 rounded-lg border border-gray-200 overflow-hidden">
+                      <div className="px-4 py-2 bg-gray-50 border-b border-gray-200">
+                        <p className="text-xs font-medium text-gray-500">
+                          Measured PFAS levels (EPA UCMR5 lab data, {report.pfasReport.pfasCount} PFAS compounds detected)
+                        </p>
+                      </div>
+                      <table className="w-full text-sm">
+                        <thead className="border-b border-gray-100">
+                          <tr>
+                            <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Compound</th>
+                            <th className="px-4 py-2 text-right text-xs font-medium text-gray-500">Max Level (ppt)</th>
+                            <th className="px-4 py-2 text-right text-xs font-medium text-gray-500">EPA MCL (ppt)</th>
+                            <th className="px-4 py-2 text-right text-xs font-medium text-gray-500">Status</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100">
+                          {report.pfasReport.contaminants.map((c) => (
+                            <tr key={c.name} className="hover:bg-gray-50">
+                              <td className="px-4 py-2 font-medium text-gray-900">{c.name}</td>
+                              <td className="px-4 py-2 text-right font-mono text-gray-700">
+                                {c.maxPPT.toFixed(1)}
+                              </td>
+                              <td className="px-4 py-2 text-right text-gray-500">
+                                {c.mclPPT !== null ? c.mclPPT.toFixed(1) : "None set"}
+                              </td>
+                              <td className="px-4 py-2 text-right">
+                                {c.mclPPT !== null ? (
+                                  <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
+                                    c.exceedsMcl
+                                      ? "bg-red-100 text-red-700"
+                                      : "bg-green-100 text-green-700"
+                                  }`}>
+                                    {c.exceedsMcl ? "Over limit" : "Within limit"}
+                                  </span>
+                                ) : (
+                                  <span className="text-xs text-gray-400">No federal limit</span>
+                                )}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                      <div className="px-4 py-2 border-t border-gray-100">
+                        <p className="text-[10px] text-gray-400">
+                          ppt = parts per trillion. EPA final PFAS rule (April 2024) sets MCLs for PFOA, PFOS, PFHxS, PFNA, and HFPO-DA (GenX). Compliance deadline: 2029.
+                        </p>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -425,7 +493,8 @@ export default async function WaterReportPage({ params }: PageProps) {
 
         {/* Disclaimer */}
         <p className="text-xs text-gray-400 text-center leading-relaxed">
-          Data source: EPA Safe Drinking Water Information System (SDWIS) via ECHO.
+          Data sources: EPA Safe Drinking Water Information System (SDWIS) via ECHO,
+          and EPA UCMR5 contaminant monitoring data.
           Last updated: {report.lastUpdated}. This report reflects system-level data
           reported to the EPA and may not reflect conditions at your specific tap.
           For the most accurate results, consider a certified lab test.

@@ -1,7 +1,7 @@
 /**
  * EPA Water Quality Data Client
  *
- * Uses two data sources:
+ * Uses three data sources:
  *
  * 1. EPA Envirofacts SDWIS API (ZIP to water system mapping)
  *    Base: https://data.epa.gov/efservice/
@@ -12,13 +12,18 @@
  *    No API key. Free. Covers ALL US water systems (not just EPA direct-primacy).
  *    This is the primary data source for violations and contaminant data.
  *
+ * 3. EPA UCMR5 Bulk Data (PFAS levels from actual lab measurements)
+ *    Processed from: https://www.epa.gov/dwucmr/occurrence-data-unregulated-contaminant-monitoring-rule
+ *    Pre-processed into data/processed/pfas-compact.json by scripts/process-ucmr5.js
+ *    Covers ~10,000 ZIP codes with actual PFAS measurement data.
+ *
  * ZIP mapping note: The Envirofacts GEOGRAPHIC_AREA table is sparsely populated
  * for state-primacy systems. As a fallback, we also search ECHO by city+state
  * using a ZIP-to-city lookup.
- *
- * TODO: Download ECHO bulk CSV (SDWA_GEOGRAPHIC_AREAS.csv) for a complete
- * pre-built ZIP-to-PWSID database. This would be more reliable than API lookups.
  */
+
+import { getPfasData, type PfasReport } from "./pfas-data";
+import { getSystemsForZip } from "./zip-systems";
 
 const ENVIROFACTS_BASE = "https://data.epa.gov/efservice";
 const ECHO_BASE = "https://echodata.epa.gov/echo";
@@ -310,15 +315,40 @@ export interface WaterReportData {
   }>;
   hasPfas: boolean;
   hasLead: boolean;
+  pfasReport: PfasReport | null;
   zipCode: string;
   lastUpdated: string;
 }
 
 export async function getWaterReport(zip: string): Promise<WaterReportData | null> {
-  // Step 1: Find water systems for this ZIP
-  let systems = await getSystemsByZipEnvirofacts(zip);
+  // Step 1: Try pre-built bulk data first (instant, no API calls)
+  const bulkSystems = getSystemsForZip(zip);
+  let systems: EpaWaterSystem[] = [];
 
-  // Step 2: If Envirofacts returns nothing (common for state-primacy), try ECHO via city
+  if (bulkSystems && bulkSystems.length > 0) {
+    // Use bulk data as primary source
+    for (const bs of bulkSystems) {
+      systems.push({
+        PWSID: bs.pwsId,
+        PWS_NAME: bs.name,
+        STATE_CODE: bs.pwsId.slice(0, 2), // First 2 chars of PWSID are state FIPS
+        COUNTY_SERVED: "",
+        POPULATION_SERVED_COUNT: bs.populationServed,
+        PRIMARY_SOURCE_CODE: bs.sourceCode,
+        GW_SW_CODE: bs.sourceCode,
+        PWS_TYPE_CODE: "CWS",
+        PWS_ACTIVITY_CODE: "A",
+        CITY_SERVED: "",
+      });
+    }
+  }
+
+  // Step 2: If bulk data has no results, fall back to Envirofacts API
+  if (systems.length === 0) {
+    systems = await getSystemsByZipEnvirofacts(zip);
+  }
+
+  // Step 3: If Envirofacts also returns nothing (common for state-primacy), try ECHO via city
   if (systems.length === 0) {
     const location = await zipToCity(zip);
     if (location) {
@@ -393,7 +423,10 @@ export async function getWaterReport(zip: string): Promise<WaterReportData | nul
     };
   }
 
-  // Step 5: Calculate grade
+  // Step 5: Get PFAS data from UCMR5 bulk dataset
+  const pfasReport = getPfasData(zip);
+
+  // Step 6: Calculate grade
   const healthViolations = violations.filter((v) => v.isHealthBased);
   const currentYear = new Date().getFullYear();
   const recentViolations = violations.filter((v) => {
@@ -411,6 +444,9 @@ export async function getWaterReport(zip: string): Promise<WaterReportData | nul
   // Lead/copper exceedances
   if (leadCopper?.leadExceeds) score -= 20;
   if (leadCopper?.copperExceeds) score -= 10;
+
+  // PFAS exceedances from UCMR5 lab data
+  if (pfasReport?.exceedsMcl) score -= 10;
 
   score = Math.max(0, Math.min(100, score));
 
@@ -443,11 +479,12 @@ export async function getWaterReport(zip: string): Promise<WaterReportData | nul
       category: data.category,
     }));
 
-  // PFAS check
+  // PFAS check: use UCMR5 data (actual measurements) or violation records
   const pfasTerms = ["PFOA", "PFOS", "PFAS", "GenX", "PFBS", "PFHxS", "PFNA", "PFDA"];
-  const hasPfas = violations.some((v) =>
+  const hasPfasViolation = violations.some((v) =>
     pfasTerms.some((term) => v.contaminantName.toUpperCase().includes(term))
   );
+  const hasPfas = hasPfasViolation || (pfasReport !== null && pfasReport.detected);
 
   // Lead check
   const hasLead = (leadCopper?.lead90th != null && leadCopper.lead90th > 0) ||
@@ -478,6 +515,7 @@ export async function getWaterReport(zip: string): Promise<WaterReportData | nul
     topConcerns,
     hasPfas,
     hasLead,
+    pfasReport,
     zipCode: zip,
     lastUpdated: new Date().toISOString().slice(0, 10),
   };
