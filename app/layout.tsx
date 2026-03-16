@@ -56,8 +56,8 @@ export default function RootLayout({
       <head>
         <AdSenseScript />
       </head>
-      <GoogleAnalytics />
       <body className={`${inter.className} min-h-screen bg-gray-50 text-gray-900 antialiased`}>
+        <GoogleAnalytics />
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{
