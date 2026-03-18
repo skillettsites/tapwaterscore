@@ -4,6 +4,8 @@ import ZipLookup from "@/components/ZipLookup";
 import { notFound } from "next/navigation";
 import { CITIES, CITY_BY_SLUG, CITIES_BY_STATE } from "@/lib/cities";
 
+export const revalidate = 86400;
+
 type Params = Promise<{ state: string; city: string }>;
 
 export function generateStaticParams() {

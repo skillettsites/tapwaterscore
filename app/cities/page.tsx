@@ -2,6 +2,8 @@ import { Metadata } from "next";
 import Link from "next/link";
 import { CITIES_BY_STATE, STATES_WITH_CITIES } from "@/lib/cities";
 
+export const revalidate = 86400;
+
 export const metadata: Metadata = {
   title: "Water Quality by City - Tap Water Reports for 200+ US Cities | TapWaterScore",
   description:

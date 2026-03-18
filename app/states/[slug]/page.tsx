@@ -3,6 +3,8 @@ import Link from "next/link";
 import ZipLookup from "@/components/ZipLookup";
 import { notFound } from "next/navigation";
 
+export const revalidate = 86400;
+
 const STATES: Record<
   string,
   { name: string; abbr: string; slug: string }
