@@ -22,7 +22,7 @@ export async function generateMetadata({
   if (!cityData) return {};
 
   return {
-    title: `Tap Water Quality in ${cityData.name}, ${cityData.stateAbbr} - Water Report | TapWaterScore`,
+    title: `Tap Water Quality in ${cityData.name}, ${cityData.stateAbbr} - Water Report`,
     description: `Is ${cityData.name}, ${cityData.state} tap water safe? Check water quality, contaminants, EPA violations, and water scores. Free report for ${cityData.name} ZIP codes.`,
   };
 }

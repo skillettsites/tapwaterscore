@@ -4,7 +4,7 @@ import Link from "next/link";
 export const revalidate = 86400;
 
 export const metadata: Metadata = {
-  title: "Water Quality by State | TapWaterScore",
+  title: "Water Quality by State",
   description:
     "Explore tap water quality across all 50 US states and DC. See water systems, violations, contaminant data, and water quality scores for every state.",
 };

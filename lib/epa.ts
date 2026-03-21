@@ -235,8 +235,85 @@ async function getEchoLeadCopper(pwsId: string): Promise<EchoLeadCopper | null> 
   };
 }
 
+// ── ZIP prefix to state abbreviation lookup ──
+// ZIP code prefixes (first 3 digits) map to states. Used to validate that
+// pre-built bulk data returns systems from the correct state.
+// Source: USPS ZIP code ranges (well-defined, stable data)
+
+function getStateFromZip(zip: string): string | null {
+  const prefix = parseInt(zip.slice(0, 3), 10);
+  if (isNaN(prefix)) return null;
+
+  // ZIP prefix ranges to state abbreviation
+  if (prefix >= 5 && prefix <= 5) return "NY"; // 005
+  if (prefix >= 6 && prefix <= 9) return "PR"; // 006-009
+  if (prefix >= 10 && prefix <= 14) return "MA"; // 010-014
+  if (prefix >= 15 && prefix <= 16) return "MA"; // 015-016 (part of western MA)
+  if (prefix >= 17 && prefix <= 19) return "MA"; // 017-019
+  if (prefix >= 20 && prefix <= 25) return "MA"; // 020-025
+  if (prefix >= 26 && prefix <= 27) return "MA"; // 026-027
+  if (prefix >= 28 && prefix <= 29) return "RI"; // 028-029
+  if (prefix >= 30 && prefix <= 38) return "NH"; // 030-038
+  if (prefix === 39) return "ME"; // 039
+  if (prefix >= 40 && prefix <= 49) return "ME"; // 040-049
+  if (prefix >= 50 && prefix <= 54) return "VT"; // 050-054
+  if (prefix === 55) return "MA"; // 055
+  if (prefix >= 56 && prefix <= 59) return "VT"; // 056-059
+  if (prefix >= 60 && prefix <= 69) return "CT"; // 060-069
+  if (prefix >= 70 && prefix <= 89) return "NJ"; // 070-089
+  if (prefix >= 90 && prefix <= 99) return "AE"; // 090-099 (military)
+  if (prefix >= 100 && prefix <= 149) return "NY"; // 100-149
+  if (prefix >= 150 && prefix <= 196) return "PA"; // 150-196
+  if (prefix >= 197 && prefix <= 199) return "DE"; // 197-199
+  if (prefix >= 200 && prefix <= 205) return "DC"; // 200-205
+  if (prefix >= 206 && prefix <= 219) return "MD"; // 206-219
+  if (prefix >= 220 && prefix <= 246) return "VA"; // 220-246
+  if (prefix >= 247 && prefix <= 268) return "WV"; // 247-268
+  if (prefix >= 270 && prefix <= 289) return "NC"; // 270-289
+  if (prefix >= 290 && prefix <= 299) return "SC"; // 290-299
+  if (prefix >= 300 && prefix <= 319) return "GA"; // 300-319
+  if (prefix >= 320 && prefix <= 349) return "FL"; // 320-349
+  if (prefix >= 350 && prefix <= 369) return "AL"; // 350-369
+  if (prefix >= 370 && prefix <= 385) return "TN"; // 370-385
+  if (prefix >= 386 && prefix <= 397) return "MS"; // 386-397
+  if (prefix >= 398 && prefix <= 399) return "GA"; // 398-399
+  if (prefix >= 400 && prefix <= 427) return "KY"; // 400-427
+  if (prefix >= 430 && prefix <= 458) return "OH"; // 430-458
+  if (prefix >= 460 && prefix <= 479) return "IN"; // 460-479
+  if (prefix >= 480 && prefix <= 499) return "MI"; // 480-499
+  if (prefix >= 500 && prefix <= 528) return "IA"; // 500-528
+  if (prefix >= 530 && prefix <= 532) return "WI"; // 530-532
+  if (prefix >= 534 && prefix <= 535) return "WI"; // 534-535
+  if (prefix >= 537 && prefix <= 549) return "WI"; // 537-549
+  if (prefix >= 550 && prefix <= 567) return "MN"; // 550-567
+  if (prefix >= 570 && prefix <= 577) return "SD"; // 570-577
+  if (prefix >= 580 && prefix <= 588) return "ND"; // 580-588
+  if (prefix >= 590 && prefix <= 599) return "MT"; // 590-599
+  if (prefix >= 600 && prefix <= 629) return "IL"; // 600-629
+  if (prefix >= 630 && prefix <= 658) return "MO"; // 630-658
+  if (prefix >= 660 && prefix <= 679) return "KS"; // 660-679
+  if (prefix >= 680 && prefix <= 693) return "NE"; // 680-693
+  if (prefix >= 700 && prefix <= 714) return "LA"; // 700-714
+  if (prefix >= 716 && prefix <= 729) return "AR"; // 716-729
+  if (prefix >= 730 && prefix <= 749) return "OK"; // 730-749
+  if (prefix >= 750 && prefix <= 799) return "TX"; // 750-799
+  if (prefix >= 800 && prefix <= 816) return "CO"; // 800-816
+  if (prefix >= 820 && prefix <= 831) return "WY"; // 820-831
+  if (prefix >= 832 && prefix <= 838) return "ID"; // 832-838
+  if (prefix >= 840 && prefix <= 847) return "UT"; // 840-847
+  if (prefix >= 850 && prefix <= 865) return "AZ"; // 850-865
+  if (prefix >= 870 && prefix <= 884) return "NM"; // 870-884
+  if (prefix >= 889 && prefix <= 898) return "NV"; // 889-898
+  if (prefix >= 900 && prefix <= 961) return "CA"; // 900-961
+  if (prefix >= 967 && prefix <= 968) return "HI"; // 967-968
+  if (prefix >= 970 && prefix <= 979) return "OR"; // 970-979
+  if (prefix >= 980 && prefix <= 994) return "WA"; // 980-994
+  if (prefix >= 995 && prefix <= 999) return "AK"; // 995-999
+
+  return null;
+}
+
 // ── ZIP-to-City mapping (simple built-in for common ZIPs) ──
-// TODO: Replace with a proper ZIP-to-city database or API
 
 async function zipToCity(zip: string): Promise<{ city: string; state: string } | null> {
   // Zippopotam.us: free, no API key, reliable ZIP-to-city lookup
@@ -328,12 +405,23 @@ export async function getWaterReport(zip: string): Promise<WaterReportData | nul
   let systems: EpaWaterSystem[] = [];
 
   if (bulkSystems && bulkSystems.length > 0) {
-    // Use bulk data as primary source
+    // Validate: filter out systems from wrong states.
+    // The bulk data can contain false matches from the "self-reported ZIP" logic
+    // in process-sdwa-geo2.js (e.g., a FL system with a NY mailing address ZIP).
+    const expectedState = getStateFromZip(zip);
+
     for (const bs of bulkSystems) {
+      const systemState = bs.pwsId.slice(0, 2); // First 2 chars of PWSID are state code
+      // Keep the system if it matches the expected state, or if we cannot determine
+      // the expected state (unknown ZIP range), or if the PWSID uses a numeric FIPS
+      // prefix (tribal/territory systems like 01, 02, etc.)
+      const isNumericPrefix = /^\d/.test(systemState);
+      if (expectedState && !isNumericPrefix && systemState !== expectedState) continue;
+
       systems.push({
         PWSID: bs.pwsId,
         PWS_NAME: bs.name,
-        STATE_CODE: bs.pwsId.slice(0, 2), // First 2 chars of PWSID are state FIPS
+        STATE_CODE: systemState,
         COUNTY_SERVED: "",
         POPULATION_SERVED_COUNT: bs.populationServed,
         PRIMARY_SOURCE_CODE: bs.sourceCode,
@@ -354,7 +442,17 @@ export async function getWaterReport(zip: string): Promise<WaterReportData | nul
   if (systems.length === 0) {
     const location = await zipToCity(zip);
     if (location) {
-      const echoSystems = await getSystemsByEchoSearch(location.city, location.state);
+      let echoSystems = await getSystemsByEchoSearch(location.city, location.state);
+
+      // Some cities have suffixes in Zippopotam.us that ECHO doesn't recognise
+      // (e.g., "New York City" vs "New York", "Oklahoma City" vs "Oklahoma").
+      // If the first search returned nothing and the city name ends with " City",
+      // retry without the suffix.
+      if (echoSystems.length === 0 && location.city.endsWith(" City")) {
+        const shortCity = location.city.replace(/ City$/, "");
+        echoSystems = await getSystemsByEchoSearch(shortCity, location.state);
+      }
+
       // Convert ECHO results to our internal format
       for (const es of echoSystems.slice(0, 10)) {
         systems.push({

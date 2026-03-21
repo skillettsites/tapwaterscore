@@ -5,7 +5,7 @@ import { CITIES_BY_STATE, STATES_WITH_CITIES } from "@/lib/cities";
 export const revalidate = 86400;
 
 export const metadata: Metadata = {
-  title: "Water Quality by City - Tap Water Reports for 200+ US Cities | TapWaterScore",
+  title: "Water Quality by City - Tap Water Reports for 200+ US Cities",
   description:
     "Check tap water quality for over 200 major US cities. See water sources, common contaminants, EPA violations, and water quality scores. Free reports by ZIP code.",
 };

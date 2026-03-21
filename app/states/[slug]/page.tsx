@@ -183,7 +183,7 @@ export async function generateMetadata({
   if (!state) return {};
 
   return {
-    title: `${state.name} Water Quality - Tap Water Report | TapWaterScore`,
+    title: `${state.name} Water Quality - Tap Water Report`,
     description: `Check tap water quality in ${state.name}. See water systems, EPA violations, contaminant data, and water quality scores for ${state.name} (${state.abbr}).`,
   };
 }
